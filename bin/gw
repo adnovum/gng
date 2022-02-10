@@ -1,1 +1,127 @@
-gng
+#!/usr/bin/env bash
+set -o errexit
+set -o nounset
+set -o pipefail
+set -o errtrace
+DEBUG="${DEBUG:-0}"
+if [[ "${DEBUG}" == 1 ]]; then
+  set -x
+fi
+
+readonly INFO_COLOR='\033[1;96m'
+readonly NO_COLOR='\033[0m' # No Color
+readonly ERROR_COLOR='\033[0;31m'
+
+readonly SAVED_OPTS="$(
+  shopt -po
+  shopt -p
+)"
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  TARGET="$(readlink "$SOURCE")"
+  if [[ $TARGET == /* ]]; then
+    SOURCE="$TARGET"
+  else
+    SELF_DIR="$(dirname "$SOURCE")"
+    SOURCE="$SELF_DIR/$TARGET" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+  fi
+done
+SELF_DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+readonly SELF_DIR
+
+function debug() {
+  if [[ "${DEBUG}" == 0 ]]; then
+    return
+  fi
+  echo -e "${INFO_COLOR}$*${NO_COLOR}\n"
+}
+
+function err() {
+  echo -e "${ERROR_COLOR}$*${NO_COLOR}\n" >&2
+}
+
+
+function info() {
+  echo -e "${INFO_COLOR} $*${NO_COLOR}\n"
+}
+
+function die() {
+  local exit_status=$?
+  if [[ "${DEBUG}" == 0 ]]; then
+    err "$@"
+  else
+    err "$@" "($(caller))"
+  fi
+  if [ "$exit_status" = "0" ]; then
+    exit 1
+  else
+    exit $exit_status
+  fi
+}
+
+__errorCallBack__() {
+  local exit_status=$?
+  local trace_info
+  trace_info=$(
+    local frame=0
+    while caller ${frame}; do
+      ((frame++))
+    done
+  )
+  err "StackTrace =>
+${trace_info}
+"
+  exit $exit_status
+}
+if [[ "${DEBUG}" == 1 ]]; then
+  trap '__errorCallBack__' ERR
+fi
+
+
+# DEFAULTS may be overridden by calling environment.
+readonly GRADLEW="${GRADLEW:-gradlew}"
+
+lookup() {
+  local file="${1}"
+  local curr_path="${2}"
+  [[ -z "${curr_path}" ]] && curr_path="${PWD}"
+
+  # Search recursively upwards for file.
+  until [[ "${curr_path}" == "/" ]]; do
+    if [[ -e "${curr_path}/${file}" ]]; then
+      echo "${curr_path}/${file}"
+      break
+    else
+      curr_path=$(dirname "${curr_path}")
+    fi
+  done
+}
+
+select_gradle() {
+  local dir="${1:-}"
+  # Use project's gradlew if found.
+  local gradlew
+  gradlew=$(lookup "${GRADLEW}" "${dir}")
+  if [[ -z "${gradlew}" ]]; then
+    die "No ${GRADLEW} set up for this project"
+  else
+    echo "${gradlew}"
+    return 0
+  fi
+  return 1
+}
+
+gradle() {
+  local gradle
+  gradle=$(select_gradle "${PWD}") || die "Failed to find gradlew."
+  debug "Using gradle at '${gradle}' to run"
+  (
+    # Restore shell options
+    eval "${SAVED_OPTS}"
+    GRADLE_OPTS="${GRADLE_OPTS:-}"
+    export GRADLE_OPTS
+    exec "${gradle}" "$@"
+  )
+}
+
+gradle "$@"
