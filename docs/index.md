@@ -28,6 +28,9 @@ You might interest in these discussions.
 
 # Install
 
+> This command is executed by the RHEL VM installer bootstrap script, it means VMs are pre-installed with gw.
+
+
 Run the following command to get started with GNG. This command requires that you have sudo privileges and curl.
 
 ```shell
