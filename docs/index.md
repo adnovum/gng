@@ -26,6 +26,17 @@ You might interest in these discussions.
 > - [Phil Swenson's Gradle Forum Post](http://gsfn.us/t/39h67)
 >
 
+# Install
+
+> This command is executed by the RHEL VM installer bootstrap script, it means VMs are pre-installed with gw.
+
+
+Run the following command to get started with GNG. This command requires that you have sudo privileges and curl.
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/adnovum/gng/master/install.sh | bash
+```
+
 # Usage
 
 Just type `gw` whenever you need to type `gradle` or `gradlew`, then your life will be easier.
